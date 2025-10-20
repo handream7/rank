@@ -262,7 +262,7 @@ function renderPlayerCards(sortedPlayers) {
     });
 }
 
-// 랭킹 그래프 렌더링 (축 색상 수정)
+// 랭킹 그래프 렌더링 (그래프 색상 수정)
 function renderRankingChart(topPlayers) {
     const labels = topPlayers.map(p => p[0]);
     const data = topPlayers.map(p => p[1]);
@@ -271,14 +271,31 @@ function renderRankingChart(topPlayers) {
         rankingChart.destroy();
     }
 
+    // 🎨 10가지 파스텔톤 색상 배열
+    const pastelColors = [
+        'rgba(255, 182, 193, 0.7)', // LightPink
+        'rgba(255, 228, 181, 0.7)', // Moccasin
+        'rgba(173, 216, 230, 0.7)', // LightBlue
+        'rgba(144, 238, 144, 0.7)', // LightGreen
+        'rgba(221, 160, 221, 0.7)', // Plum
+        'rgba(240, 230, 140, 0.7)', // Khaki
+        'rgba(175, 238, 238, 0.7)', // PaleTurquoise
+        'rgba(255, 218, 185, 0.7)', // PeachPuff
+        'rgba(152, 251, 152, 0.7)', // PaleGreen
+        'rgba(216, 191, 216, 0.7)', // Thistle
+    ];
+
+    const borderColors = pastelColors.map(color => color.replace('0.7', '1'));
+
     rankingChart = new Chart(rankingChartCanvas, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: '총 상점', data: data,
-                backgroundColor: 'rgba(255, 136, 171, 0.6)',
-                borderColor: 'rgba(255, 136, 171, 1)',
+                label: '총 상점', 
+                data: data,
+                backgroundColor: pastelColors, // 배경색 배열 적용
+                borderColor: borderColors,     // 테두리색 배열 적용
                 borderWidth: 1
             }]
         },
@@ -286,8 +303,8 @@ function renderRankingChart(topPlayers) {
             responsive: true,
             plugins: { legend: { display: false } },
             scales: {
-                x: { ticks: { color: '#333333' } }, // X축 글자색 변경
-                y: { beginAtZero: true, ticks: { color: '#333333' } } // Y축 글자색 변경
+                x: { ticks: { color: '#333333' } },
+                y: { beginAtZero: true, ticks: { color: '#333333' } }
             }
         }
     });
