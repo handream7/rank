@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -14,7 +14,6 @@
             <div class="buttons">
                 <button id="addPlayerBtn">👤 플레이어 추가</button>
                 <button id="addScoreBtn">📈 상점 입력</button>
-                <button id="setupPlayersBtn" style="background-color: #28a745;">🛠️ 초기 플레이어 설정 (최초 1회)</button>
             </div>
         </header>
 
@@ -67,9 +66,23 @@
         </div>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+        <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>관리자 암호 입력</h2>
+            <form id="passwordForm">
+                <label for="passwordInput">암호</label>
+                <input type="password" id="passwordInput" required autocomplete="current-password">
+                <div class="remember-me">
+                    <input type="checkbox" id="rememberMeCheckbox">
+                    <label for="rememberMeCheckbox">다음부터 이 기기에서 묻지 않기</label>
+                </div>
+                <button type="submit">확인</button>
+            </form>
+        </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <script type="module" src="script.js"></script>
 </body>
 </html>

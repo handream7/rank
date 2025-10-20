@@ -24,9 +24,9 @@ const db = getFirestore(app);
 // DOM 요소 가져오기
 const addPlayerBtn = document.getElementById('addPlayerBtn');
 const addScoreBtn = document.getElementById('addScoreBtn');
-const setupPlayersBtn = document.getElementById('setupPlayersBtn'); // 설정 버튼
 const scoreModal = document.getElementById('scoreModal');
 const historyModal = document.getElementById('historyModal');
+const passwordModal = document.getElementById('passwordModal');
 const closeBtns = document.querySelectorAll('.close-btn');
 const scoreForm = document.getElementById('scoreForm');
 const participantsSelect = document.getElementById('participants');
@@ -37,17 +37,8 @@ const historyNickname = document.getElementById('historyNickname');
 const rankingChartCanvas = document.getElementById('rankingChart').getContext('2d');
 
 let rankingChart;
-
-// 기본 플레이어 닉네임 목록
-const initialPlayerNicknames = [
-    "강아지똥", "개아범", "고구마", "곰인", "귤", "나미", "나인", "노하", "돌멩이", 
-    "돌체", "디네로", "뚜", "룰루", "림프", "망고", "문문", "상일", "세준", "송하", 
-    "스냅", "승민", "안아줘요", "야도란", "영재", "영준", "예수", "오팔", "옥수수", 
-    "용준", "우주", "유미", "윤혁", "의성", "이방인", "인사이더", "자쓰민", "장현", 
-    "재혁", "재형", "지구", "지호", "진상", "찐빵", "철", "체크", "침착맨", "카피바라", 
-    "쿠쿠", "태산", "태은", "티라미슈", "팔팔", "팝스타", "팬더", "포카드", "하람", 
-    "현", "호준", "홍", "환경", "화학", "황", "훈", "BOK", "DD", "DY", "HM", "KJ", "Lin"
-];
+const ADMIN_PASSWORD = "poker123!";
+const AUTH_TOKEN_KEY = 'pokerAdminAuthToken';
 
 // 인원수 드롭다운 채우기 (5-30)
 for (let i = 5; i <= 30; i++) {
@@ -60,10 +51,83 @@ for (let i = 5; i <= 30; i++) {
 document.getElementById('scoreDate').valueAsDate = new Date();
 
 
+// --- 함수 ---
+
+/**
+ * 관리자 암호를 확인하는 비동기 함수.
+ * localStorage에 토큰이 있으면 통과, 없으면 모달을 띄워 암호를 입력받음.
+ * @returns {Promise<boolean>} 인증 성공 시 true, 실패 또는 취소 시 false를 반환.
+ */
+function checkAdminPassword() {
+    return new Promise((resolve) => {
+        // 1. 저장된 인증 토큰이 있는지 확인
+        if (localStorage.getItem(AUTH_TOKEN_KEY) === 'true') {
+            resolve(true);
+            return;
+        }
+
+        // 2. 토큰이 없으면 암호 모달을 표시
+        const passwordForm = document.getElementById('passwordForm');
+        const passwordInput = document.getElementById('passwordInput');
+        const rememberMeCheckbox = document.getElementById('rememberMeCheckbox');
+        const modalCloseBtn = passwordModal.querySelector('.close-btn');
+        
+        passwordModal.style.display = 'block';
+        passwordInput.focus();
+
+        // 3. 이벤트 핸들러 정의 (나중에 제거하기 위해 변수에 담음)
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            if (passwordInput.value === ADMIN_PASSWORD) {
+                if (rememberMeCheckbox.checked) {
+                    localStorage.setItem(AUTH_TOKEN_KEY, 'true');
+                }
+                cleanupAndResolve(true);
+            } else {
+                alert("암호가 틀렸습니다.");
+                passwordInput.value = "";
+                passwordInput.focus();
+            }
+        };
+
+        const handleCancel = () => {
+            cleanupAndResolve(false);
+        };
+        
+        const handleWindowClick = (event) => {
+            if (event.target == passwordModal) {
+                cleanupAndResolve(false);
+            }
+        };
+
+        // 4. 리스너 정리 및 Promise 완료 함수
+        const cleanupAndResolve = (result) => {
+            passwordModal.style.display = 'none';
+            passwordInput.value = "";
+            rememberMeCheckbox.checked = false;
+            
+            passwordForm.removeEventListener('submit', handleSubmit);
+            modalCloseBtn.removeEventListener('click', handleCancel);
+            window.removeEventListener('click', handleWindowClick);
+            
+            resolve(result);
+        };
+
+        // 5. 이벤트 리스너 연결
+        passwordForm.addEventListener('submit', handleSubmit);
+        modalCloseBtn.addEventListener('click', handleCancel);
+        window.addEventListener('click', handleWindowClick);
+    });
+}
+
+
 // --- 이벤트 리스너 ---
 
 // '플레이어 추가' 버튼 클릭
-addPlayerBtn.addEventListener('click', () => {
+addPlayerBtn.addEventListener('click', async () => {
+    const isAuthorized = await checkAdminPassword();
+    if (!isAuthorized) return;
+
     const nickname = prompt("추가할 플레이어의 닉네임을 입력하세요:");
     if (nickname && nickname.trim() !== "") {
         addPlayer(nickname.trim());
@@ -71,26 +135,24 @@ addPlayerBtn.addEventListener('click', () => {
 });
 
 // '상점 입력' 버튼 클릭
-addScoreBtn.addEventListener('click', () => {
+addScoreBtn.addEventListener('click', async () => {
+    const isAuthorized = await checkAdminPassword();
+    if (!isAuthorized) return;
     scoreModal.style.display = 'block';
 });
 
-// '초기 플레이어 설정' 버튼 클릭
-setupPlayersBtn.addEventListener('click', async () => {
-    if (confirm("초기 플레이어 목록을 Firebase에 저장하시겠습니까? 이미 있는 플레이어는 중복 추가되지 않습니다.")) {
-        await addInitialPlayers();
-    }
-});
-
-// 모달 닫기 버튼
+// 모달 닫기 버튼 (암호 모달 제외)
 closeBtns.forEach(btn => {
+    // 암호 모달의 닫기 버튼은 checkAdminPassword 함수 내부에서 별도로 처리
+    if (btn.closest('#passwordModal')) return;
+
     btn.addEventListener('click', () => {
         scoreModal.style.display = 'none';
         historyModal.style.display = 'none';
     });
 });
 
-// 모달 바깥 영역 클릭 시 닫기
+// 모달 바깥 영역 클릭 시 닫기 (암호 모달 제외)
 window.addEventListener('click', (event) => {
     if (event.target == scoreModal) {
         scoreModal.style.display = 'none';
@@ -131,25 +193,6 @@ scoreForm.addEventListener('submit', async (e) => {
     await loadData();
 });
 
-
-// --- 함수 ---
-
-// 초기 플레이어 목록을 Firestore에 저장 (최초 1회용)
-async function addInitialPlayers() {
-    let addedCount = 0;
-    for (const nickname of initialPlayerNicknames) {
-        const playerRef = doc(db, 'players', nickname);
-        const docSnap = await getDoc(playerRef);
-        if (!docSnap.exists()) {
-            await setDoc(playerRef, { nickname: nickname, createdAt: new Date() });
-            addedCount++;
-        }
-    }
-    alert(`초기 플레이어 설정 완료! 총 ${addedCount}명의 신규 플레이어가 추가되었습니다.`);
-    await loadPlayersForDatalist();
-    await loadData();
-}
-
 // 점수 계산 로직
 function calculatePoints(participants, rank) {
     if (participants >= 5 && participants <= 6) {
@@ -171,7 +214,7 @@ async function addPlayer(nickname) {
     if (!docSnap.exists()) {
         await setDoc(playerRef, { nickname: nickname, createdAt: new Date() });
         console.log("Player added:", nickname);
-        await loadPlayersForDatalist(); // 새 플레이어 추가 후 목록 갱신
+        await loadPlayersForDatalist();
     }
 }
 
@@ -212,37 +255,29 @@ async function loadData() {
         }
     });
 
-    // 점수 기준 정렬 (랭킹 및 차트용)
     const sortedByScore = Object.entries(playerScores).sort((a, b) => b[1] - a[1]);
 
-    // 이름 기준 정렬 (카드 표시용)
-    const sortedByName = Object.entries(playerScores).sort((a, b) => a[0].localeCompare(b[0]));
-    
-    // 닉네임별 랭킹 정보를 Map으로 생성
-    const rankMap = new Map();
-    sortedByScore.forEach(([nickname], index) => {
-        rankMap.set(nickname, index + 1);
-    });
-
-    renderPlayerCards(sortedByName, rankMap);
+    renderPlayerCards(sortedByScore);
     renderRankingChart(sortedByScore.slice(0, 10));
 }
 
-// 플레이어 카드 UI 렌더링 (이름순 정렬)
-function renderPlayerCards(sortedPlayers, rankMap) {
+// 플레이어 카드 UI 렌더링 (점수 순 정렬)
+function renderPlayerCards(sortedPlayers) {
     playerCardsContainer.innerHTML = '';
-    sortedPlayers.forEach(([nickname, score]) => {
+    sortedPlayers.forEach(([nickname, score], index) => {
         const card = document.createElement('div');
         card.className = 'player-card';
         card.dataset.nickname = nickname;
 
-        const rank = rankMap.get(nickname); // Map에서 실제 랭킹 조회
+        const rank = index + 1;
         if (rank <= 3) {
             card.classList.add(`rank-${rank}`);
         }
 
+        const displayRank = String(rank).padStart(2, '0');
+
         card.innerHTML = `
-            <h3>${rank}. ${nickname}</h3>
+            <h3>${displayRank}. ${nickname}</h3>
             <p class="score">${score}점</p>
         `;
         card.addEventListener('click', () => showHistory(nickname));
@@ -309,7 +344,6 @@ async function showHistory(nickname) {
 }
 
 // --- 초기화 ---
-// 앱 시작 시 데이터 로드
 document.addEventListener('DOMContentLoaded', async () => {
     await loadPlayersForDatalist();
     await loadData();
