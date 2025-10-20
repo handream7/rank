@@ -17,13 +17,13 @@
             </div>
         </header>
 
-        <main id="player-cards-container">
-            </main>
-
         <section class="ranking-graph">
             <h2>🏆 TOP 10 RANKING</h2>
             <canvas id="rankingChart"></canvas>
         </section>
+
+        <main id="player-cards-container">
+            </main>
     </div>
 
     <div id="scoreModal" class="modal">
@@ -33,25 +33,19 @@
             <form id="scoreForm">
                 <label for="scoreDate">날짜</label>
                 <input type="date" id="scoreDate" required>
-
                 <label for="gameType">토너먼트</label>
                 <select id="gameType" required>
                     <option value="토너1">토너1</option>
                     <option value="토너2">토너2</option>
                     <option value="토너3">토너3</option>
                 </select>
-
                 <label for="playerNickname">플레이어 닉네임</label>
                 <input list="player-list" id="playerNickname" name="playerNickname" required>
                 <datalist id="player-list"></datalist>
-
                 <label for="participants">인원수</label>
-                <select id="participants" required>
-                    </select>
-
+                <select id="participants" required></select>
                 <label for="playerRank">등수</label>
                 <input type="number" id="playerRank" min="1" required>
-
                 <button type="submit">저장하기</button>
             </form>
         </div>
@@ -61,12 +55,11 @@
         <div class="modal-content">
             <span class="close-btn">&times;</span>
             <h2 id="historyNickname"></h2>
-            <ul id="historyList">
-                </ul>
+            <ul id="historyList"></ul>
         </div>
     </div>
 
-        <div id="passwordModal" class="modal">
+    <div id="passwordModal" class="modal">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
             <h2>관리자 암호 입력</h2>
@@ -80,9 +73,9 @@
                 <button type="submit">확인</button>
             </form>
         </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <script type="module" src="script.js"></script>
 </body>
 </html>

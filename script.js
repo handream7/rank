@@ -60,13 +60,11 @@ document.getElementById('scoreDate').valueAsDate = new Date();
  */
 function checkAdminPassword() {
     return new Promise((resolve) => {
-        // 1. 저장된 인증 토큰이 있는지 확인
         if (localStorage.getItem(AUTH_TOKEN_KEY) === 'true') {
             resolve(true);
             return;
         }
 
-        // 2. 토큰이 없으면 암호 모달을 표시
         const passwordForm = document.getElementById('passwordForm');
         const passwordInput = document.getElementById('passwordInput');
         const rememberMeCheckbox = document.getElementById('rememberMeCheckbox');
@@ -75,7 +73,6 @@ function checkAdminPassword() {
         passwordModal.style.display = 'block';
         passwordInput.focus();
 
-        // 3. 이벤트 핸들러 정의 (나중에 제거하기 위해 변수에 담음)
         const handleSubmit = (e) => {
             e.preventDefault();
             if (passwordInput.value === ADMIN_PASSWORD) {
@@ -100,7 +97,6 @@ function checkAdminPassword() {
             }
         };
 
-        // 4. 리스너 정리 및 Promise 완료 함수
         const cleanupAndResolve = (result) => {
             passwordModal.style.display = 'none';
             passwordInput.value = "";
@@ -113,7 +109,6 @@ function checkAdminPassword() {
             resolve(result);
         };
 
-        // 5. 이벤트 리스너 연결
         passwordForm.addEventListener('submit', handleSubmit);
         modalCloseBtn.addEventListener('click', handleCancel);
         window.addEventListener('click', handleWindowClick);
@@ -123,46 +118,34 @@ function checkAdminPassword() {
 
 // --- 이벤트 리스너 ---
 
-// '플레이어 추가' 버튼 클릭
 addPlayerBtn.addEventListener('click', async () => {
     const isAuthorized = await checkAdminPassword();
     if (!isAuthorized) return;
-
     const nickname = prompt("추가할 플레이어의 닉네임을 입력하세요:");
     if (nickname && nickname.trim() !== "") {
         addPlayer(nickname.trim());
     }
 });
 
-// '상점 입력' 버튼 클릭
 addScoreBtn.addEventListener('click', async () => {
     const isAuthorized = await checkAdminPassword();
     if (!isAuthorized) return;
     scoreModal.style.display = 'block';
 });
 
-// 모달 닫기 버튼 (암호 모달 제외)
 closeBtns.forEach(btn => {
-    // 암호 모달의 닫기 버튼은 checkAdminPassword 함수 내부에서 별도로 처리
     if (btn.closest('#passwordModal')) return;
-
     btn.addEventListener('click', () => {
         scoreModal.style.display = 'none';
         historyModal.style.display = 'none';
     });
 });
 
-// 모달 바깥 영역 클릭 시 닫기 (암호 모달 제외)
 window.addEventListener('click', (event) => {
-    if (event.target == scoreModal) {
-        scoreModal.style.display = 'none';
-    }
-    if (event.target == historyModal) {
-        historyModal.style.display = 'none';
-    }
+    if (event.target == scoreModal) scoreModal.style.display = 'none';
+    if (event.target == historyModal) historyModal.style.display = 'none';
 });
 
-// 상점 입력 폼 제출
 scoreForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -193,7 +176,6 @@ scoreForm.addEventListener('submit', async (e) => {
     await loadData();
 });
 
-// 점수 계산 로직
 function calculatePoints(participants, rank) {
     if (participants >= 5 && participants <= 6) {
         if (rank === 1) return 2; if (rank === 2) return 1;
@@ -207,7 +189,6 @@ function calculatePoints(participants, rank) {
     return 0;
 }
 
-// Firestore에 플레이어 추가 (중복 방지)
 async function addPlayer(nickname) {
     const playerRef = doc(db, 'players', nickname);
     const docSnap = await getDoc(playerRef);
@@ -218,7 +199,6 @@ async function addPlayer(nickname) {
     }
 }
 
-// Firestore에 점수 기록 추가
 async function addScore(nickname, date, gameType, participants, rank, points) {
     await addDoc(collection(db, 'scores'), {
         nickname, date, gameType, participants, rank, points,
@@ -226,7 +206,6 @@ async function addScore(nickname, date, gameType, participants, rank, points) {
     });
 }
 
-// 플레이어 목록 불러와서 드롭다운 채우기
 async function loadPlayersForDatalist() {
     const q = query(collection(db, "players"), orderBy("nickname"));
     const snapshot = await getDocs(q);
@@ -238,7 +217,6 @@ async function loadPlayersForDatalist() {
     });
 }
 
-// 전체 데이터 로드 및 UI 렌더링
 async function loadData() {
     const scoresSnapshot = await getDocs(collection(db, "scores"));
     const playersSnapshot = await getDocs(collection(db, "players"));
@@ -261,7 +239,6 @@ async function loadData() {
     renderRankingChart(sortedByScore.slice(0, 10));
 }
 
-// 플레이어 카드 UI 렌더링 (점수 순 정렬)
 function renderPlayerCards(sortedPlayers) {
     playerCardsContainer.innerHTML = '';
     sortedPlayers.forEach(([nickname, score], index) => {
@@ -285,7 +262,7 @@ function renderPlayerCards(sortedPlayers) {
     });
 }
 
-// 랭킹 그래프 렌더링 (점수 상위 10명)
+// 랭킹 그래프 렌더링 (축 색상 수정)
 function renderRankingChart(topPlayers) {
     const labels = topPlayers.map(p => p[0]);
     const data = topPlayers.map(p => p[1]);
@@ -300,23 +277,22 @@ function renderRankingChart(topPlayers) {
             labels: labels,
             datasets: [{
                 label: '총 상점', data: data,
-                backgroundColor: 'rgba(233, 69, 96, 0.6)',
-                borderColor: 'rgba(233, 69, 96, 1)',
+                backgroundColor: 'rgba(255, 136, 171, 0.6)',
+                borderColor: 'rgba(255, 136, 171, 1)',
                 borderWidth: 1
             }]
         },
         options: {
-            indexAxis: 'y', responsive: true,
+            responsive: true,
             plugins: { legend: { display: false } },
             scales: {
-                x: { beginAtZero: true, ticks: { color: '#e0e0e0' } },
-                y: { ticks: { color: '#e0e0e0' } }
+                x: { ticks: { color: '#333333' } }, // X축 글자색 변경
+                y: { beginAtZero: true, ticks: { color: '#333333' } } // Y축 글자색 변경
             }
         }
     });
 }
 
-// 특정 플레이어의 히스토리 보기
 async function showHistory(nickname) {
     historyNickname.textContent = `${nickname}님의 획득 내역`;
     historyList.innerHTML = '<li>로딩 중...</li>';
