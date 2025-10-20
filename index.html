@@ -10,15 +10,21 @@
 <body>
     <div class="container">
         <header>
-            <h1>🏆 게임 랭킹 보드</h1>
+            <h1>🏆 게임 랭킹 보드 🏆</h1>
             <div class="buttons">
-                <button id="addPlayerBtn">👤 플레이어 추가</button>
-                <button id="addScoreBtn">📈 상점 입력</button>
+                <button id="addPlayerBtn">👤 플레이어 추가 👤</button>
+                <button id="addScoreBtn">📈 상점 입력 📈</button>
+            </div>
+            
+            <div class="search-container">
+                <label for="searchPlayerInput">🔍 플레이어 검색 🔍</label>
+                <input list="player-list-search" id="searchPlayerInput" placeholder="닉네임을 입력하세요...">
+                <datalist id="player-list-search"></datalist>
             </div>
         </header>
 
         <section class="ranking-graph">
-            <h2>🏆 TOP 10 RANKING</h2>
+            <h2>🏆 TOP 10 RANKING 🏆</h2>
             <canvas id="rankingChart"></canvas>
         </section>
 

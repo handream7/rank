@@ -24,6 +24,7 @@ const db = getFirestore(app);
 // DOM 요소 가져오기
 const addPlayerBtn = document.getElementById('addPlayerBtn');
 const addScoreBtn = document.getElementById('addScoreBtn');
+const searchPlayerInput = document.getElementById('searchPlayerInput'); // 검색창
 const scoreModal = document.getElementById('scoreModal');
 const historyModal = document.getElementById('historyModal');
 const passwordModal = document.getElementById('passwordModal');
@@ -31,6 +32,7 @@ const closeBtns = document.querySelectorAll('.close-btn');
 const scoreForm = document.getElementById('scoreForm');
 const participantsSelect = document.getElementById('participants');
 const playerDatalist = document.getElementById('player-list');
+const playerDatalistSearch = document.getElementById('player-list-search'); // 검색용 데이터리스트
 const playerCardsContainer = document.getElementById('player-cards-container');
 const historyList = document.getElementById('historyList');
 const historyNickname = document.getElementById('historyNickname');
@@ -55,8 +57,6 @@ document.getElementById('scoreDate').valueAsDate = new Date();
 
 /**
  * 관리자 암호를 확인하는 비동기 함수.
- * localStorage에 토큰이 있으면 통과, 없으면 모달을 띄워 암호를 입력받음.
- * @returns {Promise<boolean>} 인증 성공 시 true, 실패 또는 취소 시 false를 반환.
  */
 function checkAdminPassword() {
     return new Promise((resolve) => {
@@ -87,25 +87,18 @@ function checkAdminPassword() {
             }
         };
 
-        const handleCancel = () => {
-            cleanupAndResolve(false);
-        };
-        
+        const handleCancel = () => cleanupAndResolve(false);
         const handleWindowClick = (event) => {
-            if (event.target == passwordModal) {
-                cleanupAndResolve(false);
-            }
+            if (event.target == passwordModal) cleanupAndResolve(false);
         };
 
         const cleanupAndResolve = (result) => {
             passwordModal.style.display = 'none';
             passwordInput.value = "";
             rememberMeCheckbox.checked = false;
-            
             passwordForm.removeEventListener('submit', handleSubmit);
             modalCloseBtn.removeEventListener('click', handleCancel);
             window.removeEventListener('click', handleWindowClick);
-            
             resolve(result);
         };
 
@@ -133,6 +126,11 @@ addScoreBtn.addEventListener('click', async () => {
     scoreModal.style.display = 'block';
 });
 
+// 검색창 입력 이벤트 리스너
+searchPlayerInput.addEventListener('input', () => {
+    filterPlayerCards();
+});
+
 closeBtns.forEach(btn => {
     if (btn.closest('#passwordModal')) return;
     btn.addEventListener('click', () => {
@@ -148,7 +146,6 @@ window.addEventListener('click', (event) => {
 
 scoreForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
     const date = document.getElementById('scoreDate').value;
     const gameType = document.getElementById('gameType').value;
     const nickname = document.getElementById('playerNickname').value.trim();
@@ -161,7 +158,6 @@ scoreForm.addEventListener('submit', async (e) => {
     }
     
     const points = calculatePoints(participants, rank);
-
     if (points > 0) {
         await addPlayer(nickname);
         await addScore(nickname, date, gameType, participants, rank, points);
@@ -175,6 +171,8 @@ scoreForm.addEventListener('submit', async (e) => {
     scoreModal.style.display = 'none';
     await loadData();
 });
+
+// --- 데이터 처리 및 렌더링 함수 ---
 
 function calculatePoints(participants, rank) {
     if (participants >= 5 && participants <= 6) {
@@ -206,35 +204,39 @@ async function addScore(nickname, date, gameType, participants, rank, points) {
     });
 }
 
+// 플레이어 목록을 두 개의 드롭다운에 모두 채우는 함수
 async function loadPlayersForDatalist() {
     const q = query(collection(db, "players"), orderBy("nickname"));
     const snapshot = await getDocs(q);
+    
+    // 두 datalist를 초기화
     playerDatalist.innerHTML = '';
+    playerDatalistSearch.innerHTML = '';
+
     snapshot.forEach(doc => {
         const option = document.createElement('option');
         option.value = doc.data().nickname;
-        playerDatalist.appendChild(option);
+        
+        // 두 datalist에 동일한 옵션을 복제하여 추가
+        playerDatalist.appendChild(option.cloneNode(true));
+        playerDatalistSearch.appendChild(option.cloneNode(true));
     });
 }
 
 async function loadData() {
     const scoresSnapshot = await getDocs(collection(db, "scores"));
     const playersSnapshot = await getDocs(collection(db, "players"));
-
     const playerScores = {};
     playersSnapshot.forEach(doc => {
         playerScores[doc.data().nickname] = 0;
     });
-
     scoresSnapshot.forEach(doc => {
         const data = doc.data();
         if(playerScores.hasOwnProperty(data.nickname)) {
             playerScores[data.nickname] += data.points;
         }
     });
-
     const sortedByScore = Object.entries(playerScores).sort((a, b) => b[1] - a[1]);
-
     renderPlayerCards(sortedByScore);
     renderRankingChart(sortedByScore.slice(0, 10));
 }
@@ -244,15 +246,12 @@ function renderPlayerCards(sortedPlayers) {
     sortedPlayers.forEach(([nickname, score], index) => {
         const card = document.createElement('div');
         card.className = 'player-card';
-        card.dataset.nickname = nickname;
-
+        card.dataset.nickname = nickname; // 검색을 위해 데이터 속성에 닉네임 저장
         const rank = index + 1;
         if (rank <= 3) {
             card.classList.add(`rank-${rank}`);
         }
-
         const displayRank = String(rank).padStart(2, '0');
-
         card.innerHTML = `
             <h3>${displayRank}. ${nickname}</h3>
             <p class="score">${score}점</p>
@@ -262,40 +261,42 @@ function renderPlayerCards(sortedPlayers) {
     });
 }
 
-// 랭킹 그래프 렌더링 (그래프 색상 수정)
+// 검색어에 따라 플레이어 카드를 필터링하는 함수
+function filterPlayerCards() {
+    const searchTerm = searchPlayerInput.value.toLowerCase();
+    const allCards = document.querySelectorAll('.player-card');
+
+    allCards.forEach(card => {
+        const nickname = card.dataset.nickname.toLowerCase();
+        if (nickname.includes(searchTerm)) {
+            card.style.display = 'block'; // 검색어와 일치하면 보이게
+        } else {
+            card.style.display = 'none'; // 일치하지 않으면 숨김
+        }
+    });
+}
+
 function renderRankingChart(topPlayers) {
     const labels = topPlayers.map(p => p[0]);
     const data = topPlayers.map(p => p[1]);
-
     if (rankingChart) {
         rankingChart.destroy();
     }
-
-    // 🎨 10가지 파스텔톤 색상 배열
     const pastelColors = [
-        'rgba(255, 182, 193, 0.7)', // LightPink
-        'rgba(255, 228, 181, 0.7)', // Moccasin
-        'rgba(173, 216, 230, 0.7)', // LightBlue
-        'rgba(144, 238, 144, 0.7)', // LightGreen
-        'rgba(221, 160, 221, 0.7)', // Plum
-        'rgba(240, 230, 140, 0.7)', // Khaki
-        'rgba(175, 238, 238, 0.7)', // PaleTurquoise
-        'rgba(255, 218, 185, 0.7)', // PeachPuff
-        'rgba(152, 251, 152, 0.7)', // PaleGreen
-        'rgba(216, 191, 216, 0.7)', // Thistle
+        'rgba(255, 182, 193, 0.7)', 'rgba(255, 228, 181, 0.7)', 'rgba(173, 216, 230, 0.7)',
+        'rgba(144, 238, 144, 0.7)', 'rgba(221, 160, 221, 0.7)', 'rgba(240, 230, 140, 0.7)',
+        'rgba(175, 238, 238, 0.7)', 'rgba(255, 218, 185, 0.7)', 'rgba(152, 251, 152, 0.7)',
+        'rgba(216, 191, 216, 0.7)',
     ];
-
     const borderColors = pastelColors.map(color => color.replace('0.7', '1'));
-
     rankingChart = new Chart(rankingChartCanvas, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: '총 상점', 
-                data: data,
-                backgroundColor: pastelColors, // 배경색 배열 적용
-                borderColor: borderColors,     // 테두리색 배열 적용
+                label: '총 상점', data: data,
+                backgroundColor: pastelColors,
+                borderColor: borderColors,
                 borderWidth: 1
             }]
         },
@@ -314,20 +315,17 @@ async function showHistory(nickname) {
     historyNickname.textContent = `${nickname}님의 획득 내역`;
     historyList.innerHTML = '<li>로딩 중...</li>';
     historyModal.style.display = 'block';
-    
     const q = query(
         collection(db, "scores"), 
         where("nickname", "==", nickname), 
         orderBy("createdAt", "desc")
     );
     const snapshot = await getDocs(q);
-
     historyList.innerHTML = '';
     if (snapshot.empty) {
         historyList.innerHTML = '<li>획득 내역이 없습니다.</li>';
         return;
     }
-
     snapshot.forEach(doc => {
         const data = doc.data();
         const li = document.createElement('li');
