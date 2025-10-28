@@ -197,10 +197,18 @@ async function addPlayer(nickname) {
     }
 }
 
+// Firestore에 점수 기록 추가 (커스텀 ID 사용)
 async function addScore(nickname, date, gameType, participants, rank, points) {
-    await addDoc(collection(db, 'scores'), {
+    // 커스텀 ID 생성: 날짜-닉네임-랭크-고유시간
+    const timestamp = new Date().getTime(); // ID 고유성을 위한 타임스탬프
+    const customId = `${date}-${nickname}-${rank}-${timestamp}`;
+    
+    // 'addDoc' (랜덤 ID) 대신 'doc'과 'setDoc' (커스텀 ID) 사용
+    const scoreRef = doc(db, 'scores', customId);
+    
+    await setDoc(scoreRef, {
         nickname, date, gameType, participants, rank, points,
-        createdAt: new Date()
+        createdAt: new Date(timestamp) // 생성 시간을 ID의 타임스탬프와 일치
     });
 }
 
@@ -209,7 +217,6 @@ async function loadPlayersForDatalist() {
     const q = query(collection(db, "players"), orderBy("nickname"));
     const snapshot = await getDocs(q);
     
-    // 두 datalist를 초기화
     playerDatalist.innerHTML = '';
     playerDatalistSearch.innerHTML = '';
 
@@ -217,7 +224,6 @@ async function loadPlayersForDatalist() {
         const option = document.createElement('option');
         option.value = doc.data().nickname;
         
-        // 두 datalist에 동일한 옵션을 복제하여 추가
         playerDatalist.appendChild(option.cloneNode(true));
         playerDatalistSearch.appendChild(option.cloneNode(true));
     });
@@ -246,7 +252,7 @@ function renderPlayerCards(sortedPlayers) {
     sortedPlayers.forEach(([nickname, score], index) => {
         const card = document.createElement('div');
         card.className = 'player-card';
-        card.dataset.nickname = nickname; // 검색을 위해 데이터 속성에 닉네임 저장
+        card.dataset.nickname = nickname; 
         const rank = index + 1;
         if (rank <= 3) {
             card.classList.add(`rank-${rank}`);
@@ -269,9 +275,9 @@ function filterPlayerCards() {
     allCards.forEach(card => {
         const nickname = card.dataset.nickname.toLowerCase();
         if (nickname.includes(searchTerm)) {
-            card.style.display = 'block'; // 검색어와 일치하면 보이게
+            card.style.display = 'block';
         } else {
-            card.style.display = 'none'; // 일치하지 않으면 숨김
+            card.style.display = 'none';
         }
     });
 }
