@@ -251,3 +251,44 @@ header h1 {
     from { transform: translateY(-50px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
+
+/* 점수 설명 표 스타일 */
+.score-guide {
+    background-color: var(--card-color);
+    border-radius: 15px;
+    padding: 20px;
+    margin-top: 40px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+}
+
+.score-guide h2 {
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.score-guide table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+}
+
+.score-guide th,
+.score-guide td {
+    padding: 12px;
+    border: 1px solid var(--primary-color);
+}
+
+.score-guide th {
+    background-color: #FFF0F5; /* 연한 핑크색 배경 */
+    color: var(--secondary-color);
+    font-size: 1.1rem;
+}
+
+.score-guide td {
+    font-size: 1rem;
+}
+
+.score-guide tbody tr:nth-child(even) {
+    background-color: #FFFBFB; /* 짝수 행 연한 배경색 */
+}

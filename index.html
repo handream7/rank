@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>게임 랭킹 보드</title>
+    <title>홀덤 랭킹 보드</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
 </head>
@@ -28,6 +28,55 @@
             <canvas id="rankingChart"></canvas>
         </section>
 
+        <section class="score-guide">
+            <h2>승점 획득 기준</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>인원</th>
+                        <th>1등</th>
+                        <th>2등</th>
+                        <th>3등</th>
+                        <th>4등</th>
+                        <th>5등</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>5-6명</td>
+                        <td>2점</td>
+                        <td>1점</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>7-10명</td>
+                        <td>3점</td>
+                        <td>2점</td>
+                        <td>1점</td>
+                        <td>-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>11-15명</td>
+                        <td>4점</td>
+                        <td>3점</td>
+                        <td>2점</td>
+                        <td>1점</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td>16명 이상</td>
+                        <td>5점</td>
+                        <td>4점</td>
+                        <td>3점</td>
+                        <td>2점</td>
+                        <td>1점</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
         <main id="player-cards-container">
             </main>
     </div>
