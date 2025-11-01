@@ -24,6 +24,7 @@ const db = getFirestore(app);
 // DOM 요소 가져오기
 const addPlayerBtn = document.getElementById('addPlayerBtn');
 const addScoreBtn = document.getElementById('addScoreBtn');
+const saveImageBtn = document.getElementById('saveImageBtn'); // 이미지 저장 버튼
 const searchPlayerInput = document.getElementById('searchPlayerInput'); // 검색창
 const scoreModal = document.getElementById('scoreModal');
 const historyModal = document.getElementById('historyModal');
@@ -126,6 +127,67 @@ addScoreBtn.addEventListener('click', async () => {
     scoreModal.style.display = 'block';
 });
 
+// 이미지 저장 버튼 클릭 이벤트
+saveImageBtn.addEventListener('click', async () => {
+    // 1. 임시로 0점 플레이어 숨기기
+    const allCards = document.querySelectorAll('.player-card');
+    const playerScores = await getCurrentPlayerScores(); // 현재 플레이어 점수 가져오기
+
+    allCards.forEach(card => {
+        const nickname = card.dataset.nickname;
+        const score = playerScores[nickname] || 0;
+        if (score < 1) { // 1점 미만인 카드에 숨김 클래스 추가
+            card.classList.add('hidden-for-image');
+        }
+    });
+    
+    // 2. 검색창에 입력된 내용이 있다면 잠시 비워줌 (이미지에 전체가 나오도록)
+    const currentSearchTerm = searchPlayerInput.value;
+    if (currentSearchTerm) {
+        searchPlayerInput.value = '';
+        filterPlayerCards(); // 필터링 해제
+    }
+
+    // 3. 캡처 실행
+    // html2canvas는 index.html에서 로드했으므로 전역으로 사용 가능
+    html2canvas(document.querySelector('.container'), {
+        useCORS: true,
+        scale: 2,
+    }).then(canvas => {
+        // 4. 이미지 다운로드
+        const image = canvas.toDataURL("image/jpeg");
+        const link = document.createElement('a');
+        
+        // 파일명 생성: YYYYMMDD_HHMMSS
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const filename = `홀덤랭킹_${year}${month}${day}_${hours}${minutes}${seconds}.jpg`;
+
+        link.download = filename;
+        link.href = image;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // 5. 원래 상태로 복구
+        allCards.forEach(card => {
+            card.classList.remove('hidden-for-image'); // 숨김 클래스 제거
+        });
+        
+        // 검색어 복구
+        if (currentSearchTerm) {
+            searchPlayerInput.value = currentSearchTerm;
+            filterPlayerCards();
+        }
+    });
+});
+
+
 // 검색창 입력 이벤트 리스너
 searchPlayerInput.addEventListener('input', () => {
     filterPlayerCards();
@@ -197,22 +259,17 @@ async function addPlayer(nickname) {
     }
 }
 
-// Firestore에 점수 기록 추가 (커스텀 ID 사용)
 async function addScore(nickname, date, gameType, participants, rank, points) {
-    // 커스텀 ID 생성: 날짜-닉네임-랭크-고유시간
-    const timestamp = new Date().getTime(); // ID 고유성을 위한 타임스탬프
+    const timestamp = new Date().getTime();
     const customId = `${date}-${nickname}-${rank}-${timestamp}`;
-    
-    // 'addDoc' (랜덤 ID) 대신 'doc'과 'setDoc' (커스텀 ID) 사용
     const scoreRef = doc(db, 'scores', customId);
     
     await setDoc(scoreRef, {
         nickname, date, gameType, participants, rank, points,
-        createdAt: new Date(timestamp) // 생성 시간을 ID의 타임스탬프와 일치
+        createdAt: new Date(timestamp)
     });
 }
 
-// 플레이어 목록을 두 개의 드롭다운에 모두 채우는 함수
 async function loadPlayersForDatalist() {
     const q = query(collection(db, "players"), orderBy("nickname"));
     const snapshot = await getDocs(q);
@@ -229,20 +286,33 @@ async function loadPlayersForDatalist() {
     });
 }
 
-async function loadData() {
+// 현재 플레이어들의 점수를 비동기적으로 가져오는 함수
+async function getCurrentPlayerScores() {
     const scoresSnapshot = await getDocs(collection(db, "scores"));
     const playersSnapshot = await getDocs(collection(db, "players"));
+
     const playerScores = {};
     playersSnapshot.forEach(doc => {
         playerScores[doc.data().nickname] = 0;
     });
+
     scoresSnapshot.forEach(doc => {
         const data = doc.data();
         if(playerScores.hasOwnProperty(data.nickname)) {
             playerScores[data.nickname] += data.points;
         }
     });
+    return playerScores;
+}
+
+// ==========================================================
+// ✅ [수정] 실수로 삭제되었던 loadData 함수를 다시 추가했습니다.
+// ==========================================================
+async function loadData() {
+    const playerScores = await getCurrentPlayerScores();
+    
     const sortedByScore = Object.entries(playerScores).sort((a, b) => b[1] - a[1]);
+
     renderPlayerCards(sortedByScore);
     renderRankingChart(sortedByScore.slice(0, 10));
 }
@@ -274,7 +344,7 @@ function filterPlayerCards() {
 
     allCards.forEach(card => {
         const nickname = card.dataset.nickname.toLowerCase();
-        if (nickname.includes(searchTerm)) {
+        if (searchTerm === '' || nickname.includes(searchTerm)) {
             card.style.display = 'block';
         } else {
             card.style.display = 'none';
@@ -343,5 +413,5 @@ async function showHistory(nickname) {
 // --- 초기화 ---
 document.addEventListener('DOMContentLoaded', async () => {
     await loadPlayersForDatalist();
-    await loadData();
+    await loadData(); // 이제 이 함수가 존재하므로 오류가 해결됩니다.
 });

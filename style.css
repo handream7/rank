@@ -1,9 +1,9 @@
 :root {
-    --bg-color: #F9F9F9; /* 흰색에 가까운 매우 연한 회색 */
-    --card-color: #FFFFFF; /* 흰색 */
-    --primary-color: #FFCDD2; /* 연한 파스텔 분홍색 */
-    --secondary-color: #FF8FAB; /* 포인트 파스텔 분홍색 */
-    --font-color: #333333; /* 어두운 회색 (가독성) */
+    --bg-color: #F9F9F9;
+    --card-color: #FFFFFF;
+    --primary-color: #FFCDD2;
+    --secondary-color: #FF8FAB;
+    --font-color: #333333;
     --gold-color: #FFD700;
 }
 
@@ -232,26 +232,6 @@ header h1 {
     font-weight: normal;
 }
 
-@keyframes fadeInDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes slideIn {
-    from { transform: translateY(-50px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
 /* 점수 설명 표 스타일 */
 .score-guide {
     background-color: var(--card-color);
@@ -291,4 +271,83 @@ header h1 {
 
 .score-guide tbody tr:nth-child(even) {
     background-color: #FFFBFB; /* 짝수 행 연한 배경색 */
+}
+
+/* ======================================================== */
+/* ✅ [수정] 이미지 저장 시에만 적용되는 스타일
+/* 잘못된 @media 쿼리를 제거하고, script.js에서 제어하는 .saving-image 클래스를 사용합니다.
+/* ======================================================== */
+body.saving-image {
+    background-color: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    overflow: hidden !important; /* 캡처 시 스크롤바 제거 */
+}
+
+body.saving-image .container {
+    max-width: none !important;
+    width: auto !important;
+}
+
+body.saving-image header {
+    margin-bottom: 20px !important;
+}
+
+/* 캡처 시 숨길 요소들 */
+body.saving-image .buttons,
+body.saving-image .search-container,
+body.saving-image .modal {
+    display: none !important;
+}
+
+body.saving-image .ranking-graph,
+body.saving-image .score-guide,
+body.saving-image #player-cards-container {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 15px 0 !important;
+    margin-top: 20px !important;
+}
+
+body.saving-image #player-cards-container {
+    display: block !important;
+    column-count: 3;
+    column-gap: 15px;
+    width: 100%;
+}
+
+body.saving-image .player-card {
+    display: inline-block !important;
+    width: 95%; /* column-count와 호환되도록 너비 조정 */
+    margin-bottom: 15px !important;
+    break-inside: avoid-column;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid var(--primary-color) !important;
+}
+
+/* 0점짜리 카드 숨김 (script.js에서 이 클래스를 추가/제거) */
+body.saving-image .player-card.hidden-for-image {
+    display: none !important;
+}
+
+/* Animations */
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
