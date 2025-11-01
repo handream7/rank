@@ -24,7 +24,7 @@ const db = getFirestore(app);
 // DOM 요소 가져오기
 const addPlayerBtn = document.getElementById('addPlayerBtn');
 const addScoreBtn = document.getElementById('addScoreBtn');
-const saveImageBtn = document.getElementById('saveImageBtn'); // 이미지 저장 버튼
+// ✅ [수정] saveImageBtn 변수 선언 삭제
 const searchPlayerInput = document.getElementById('searchPlayerInput'); // 검색창
 const scoreModal = document.getElementById('scoreModal');
 const historyModal = document.getElementById('historyModal');
@@ -127,66 +127,7 @@ addScoreBtn.addEventListener('click', async () => {
     scoreModal.style.display = 'block';
 });
 
-// 이미지 저장 버튼 클릭 이벤트
-saveImageBtn.addEventListener('click', async () => {
-    // 1. 임시로 0점 플레이어 숨기기
-    const allCards = document.querySelectorAll('.player-card');
-    const playerScores = await getCurrentPlayerScores(); // 현재 플레이어 점수 가져오기
-
-    allCards.forEach(card => {
-        const nickname = card.dataset.nickname;
-        const score = playerScores[nickname] || 0;
-        if (score < 1) { // 1점 미만인 카드에 숨김 클래스 추가
-            card.classList.add('hidden-for-image');
-        }
-    });
-    
-    // 2. 검색창에 입력된 내용이 있다면 잠시 비워줌 (이미지에 전체가 나오도록)
-    const currentSearchTerm = searchPlayerInput.value;
-    if (currentSearchTerm) {
-        searchPlayerInput.value = '';
-        filterPlayerCards(); // 필터링 해제
-    }
-
-    // 3. 캡처 실행
-    // html2canvas는 index.html에서 로드했으므로 전역으로 사용 가능
-    html2canvas(document.querySelector('.container'), {
-        useCORS: true,
-        scale: 2,
-    }).then(canvas => {
-        // 4. 이미지 다운로드
-        const image = canvas.toDataURL("image/jpeg");
-        const link = document.createElement('a');
-        
-        // 파일명 생성: YYYYMMDD_HHMMSS
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const filename = `홀덤랭킹_${year}${month}${day}_${hours}${minutes}${seconds}.jpg`;
-
-        link.download = filename;
-        link.href = image;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // 5. 원래 상태로 복구
-        allCards.forEach(card => {
-            card.classList.remove('hidden-for-image'); // 숨김 클래스 제거
-        });
-        
-        // 검색어 복구
-        if (currentSearchTerm) {
-            searchPlayerInput.value = currentSearchTerm;
-            filterPlayerCards();
-        }
-    });
-});
-
+// ✅ [수정] saveImageBtn.addEventListener('click', ...) 전체 블록 삭제
 
 // 검색창 입력 이벤트 리스너
 searchPlayerInput.addEventListener('input', () => {
@@ -305,16 +246,18 @@ async function getCurrentPlayerScores() {
     return playerScores;
 }
 
-// ==========================================================
-// ✅ [수정] 실수로 삭제되었던 loadData 함수를 다시 추가했습니다.
-// ==========================================================
 async function loadData() {
     const playerScores = await getCurrentPlayerScores();
     
     const sortedByScore = Object.entries(playerScores).sort((a, b) => b[1] - a[1]);
 
     renderPlayerCards(sortedByScore);
-    renderRankingChart(sortedByScore.slice(0, 10));
+    
+    // 1점 이상인(0점 초과) 모든 플레이어를 필터링합니다.
+    const playersForChart = sortedByScore.filter(player => player[1] > 0);
+    
+    // 필터링된 전체 리스트를 전달합니다.
+    renderRankingChart(playersForChart);
 }
 
 function renderPlayerCards(sortedPlayers) {
@@ -352,31 +295,37 @@ function filterPlayerCards() {
     });
 }
 
+// 이 함수는 애니메이션과 반투명 색상을 그대로 유지합니다.
 function renderRankingChart(topPlayers) {
     const labels = topPlayers.map(p => p[0]);
     const data = topPlayers.map(p => p[1]);
     if (rankingChart) {
         rankingChart.destroy();
     }
+    // 원래의 반투명(rgba) 색상
     const pastelColors = [
         'rgba(255, 182, 193, 0.7)', 'rgba(255, 228, 181, 0.7)', 'rgba(173, 216, 230, 0.7)',
         'rgba(144, 238, 144, 0.7)', 'rgba(221, 160, 221, 0.7)', 'rgba(240, 230, 140, 0.7)',
         'rgba(175, 238, 238, 0.7)', 'rgba(255, 218, 185, 0.7)', 'rgba(152, 251, 152, 0.7)',
         'rgba(216, 191, 216, 0.7)',
     ];
-    const borderColors = pastelColors.map(color => color.replace('0.7', '1'));
+    
+    const backgroundColors = labels.map((_, i) => pastelColors[i % pastelColors.length]);
+    const borderColors = backgroundColors.map(color => color.replace('0.7', '1'));
+
     rankingChart = new Chart(rankingChartCanvas, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
                 label: '총 상점', data: data,
-                backgroundColor: pastelColors,
+                backgroundColor: backgroundColors,
                 borderColor: borderColors,
                 borderWidth: 1
             }]
         },
         options: {
+            // 애니메이션 활성화 (기본값)
             responsive: true,
             plugins: { legend: { display: false } },
             scales: {
@@ -413,5 +362,5 @@ async function showHistory(nickname) {
 // --- 초기화 ---
 document.addEventListener('DOMContentLoaded', async () => {
     await loadPlayersForDatalist();
-    await loadData(); // 이제 이 함수가 존재하므로 오류가 해결됩니다.
+    await loadData();
 });
