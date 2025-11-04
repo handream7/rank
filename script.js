@@ -24,7 +24,6 @@ const db = getFirestore(app);
 // DOM 요소 가져오기
 const addPlayerBtn = document.getElementById('addPlayerBtn');
 const addScoreBtn = document.getElementById('addScoreBtn');
-// ✅ [수정] saveImageBtn 변수 선언 삭제
 const searchPlayerInput = document.getElementById('searchPlayerInput'); // 검색창
 const scoreModal = document.getElementById('scoreModal');
 const historyModal = document.getElementById('historyModal');
@@ -127,8 +126,6 @@ addScoreBtn.addEventListener('click', async () => {
     scoreModal.style.display = 'block';
 });
 
-// ✅ [수정] saveImageBtn.addEventListener('click', ...) 전체 블록 삭제
-
 // 검색창 입력 이벤트 리스너
 searchPlayerInput.addEventListener('input', () => {
     filterPlayerCards();
@@ -227,36 +224,52 @@ async function loadPlayersForDatalist() {
     });
 }
 
-// 현재 플레이어들의 점수를 비동기적으로 가져오는 함수
+// ==========================================================
+// ✅ [확인] 여기가 사용자가 문의한 '점수 합산' 로직입니다.
+// ==========================================================
 async function getCurrentPlayerScores() {
+    // 1. 'scores' 컬렉션의 모든 문서를 가져옵니다.
     const scoresSnapshot = await getDocs(collection(db, "scores"));
+    // 2. 'players' 컬렉션의 모든 문서를 가져옵니다.
     const playersSnapshot = await getDocs(collection(db, "players"));
 
+    // 3. 모든 플레이어의 점수를 0점으로 초기화하는 객체를 만듭니다.
     const playerScores = {};
     playersSnapshot.forEach(doc => {
         playerScores[doc.data().nickname] = 0;
     });
 
+    // 4. 'scores' 컬렉션의 각 문서를 순회합니다.
     scoresSnapshot.forEach(doc => {
         const data = doc.data();
+        // 5. 점수 기록의 닉네임이 플레이어 목록에 존재하면
         if(playerScores.hasOwnProperty(data.nickname)) {
+            // 6. 해당 플레이어의 점수에 누적 합산합니다.
             playerScores[data.nickname] += data.points;
         }
     });
+    
+    // 7. 합산 완료된 객체를 반환합니다.
     return playerScores;
 }
 
+// ==========================================================
+// ✅ [확인] 이 함수가 합산된 점수를 받아 카드와 그래프로 전달합니다.
+// ==========================================================
 async function loadData() {
+    // 1. 위 함수에서 합산된 점수 객체를 가져옵니다.
     const playerScores = await getCurrentPlayerScores();
     
+    // 2. 점수를 기준으로 내림차순 정렬합니다.
     const sortedByScore = Object.entries(playerScores).sort((a, b) => b[1] - a[1]);
 
+    // 3. 정렬된 데이터를 카드 렌더링 함수로 전달합니다.
     renderPlayerCards(sortedByScore);
     
-    // 1점 이상인(0점 초과) 모든 플레이어를 필터링합니다.
+    // 4. 1점 이상인(0점 초과) 모든 플레이어를 필터링합니다.
     const playersForChart = sortedByScore.filter(player => player[1] > 0);
     
-    // 필터링된 전체 리스트를 전달합니다.
+    // 5. 필터링된 데이터를 그래프 렌더링 함수로 전달합니다.
     renderRankingChart(playersForChart);
 }
 
@@ -295,7 +308,6 @@ function filterPlayerCards() {
     });
 }
 
-// 이 함수는 애니메이션과 반투명 색상을 그대로 유지합니다.
 function renderRankingChart(topPlayers) {
     const labels = topPlayers.map(p => p[0]);
     const data = topPlayers.map(p => p[1]);
