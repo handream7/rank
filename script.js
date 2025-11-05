@@ -24,13 +24,16 @@ const db = getFirestore(app);
 // DOM 요소 가져오기
 const addPlayerBtn = document.getElementById('addPlayerBtn');
 const addScoreBtn = document.getElementById('addScoreBtn');
-const saveImageBtn = document.getElementById('saveImageBtn'); // ✅ 이미지 저장 버튼
+const saveImageBtn = document.getElementById('saveImageBtn'); 
+const useScoreBtn = document.getElementById('useScoreBtn'); // ✅ [수정] '승점 사용' 버튼
 const searchPlayerInput = document.getElementById('searchPlayerInput'); 
 const scoreModal = document.getElementById('scoreModal');
+const useScoreModal = document.getElementById('useScoreModal'); // ✅ [수정] '승점 사용' 모달
 const historyModal = document.getElementById('historyModal');
 const passwordModal = document.getElementById('passwordModal');
 const closeBtns = document.querySelectorAll('.close-btn');
 const scoreForm = document.getElementById('scoreForm');
+const useScoreForm = document.getElementById('useScoreForm'); // ✅ [수정] '승점 사용' 폼
 const participantsSelect = document.getElementById('participants');
 const playerDatalist = document.getElementById('player-list');
 const playerDatalistSearch = document.getElementById('player-list-search'); 
@@ -127,9 +130,16 @@ addScoreBtn.addEventListener('click', async () => {
     scoreModal.style.display = 'block';
 });
 
-// ==========================================================
-// ✅ [수정] 이미지 저장 (html2canvas 미사용, 제목 직접 그리기 방식)
-// ==========================================================
+// ✅ [수정] '승점 사용' 버튼 이벤트 리스너
+useScoreBtn.addEventListener('click', async () => {
+    const isAuthorized = await checkAdminPassword();
+    if (!isAuthorized) return;
+    // 새 모달의 날짜 기본값 설정
+    document.getElementById('usageDate').valueAsDate = new Date();
+    useScoreModal.style.display = 'block';
+});
+
+// '이미지 저장' (html2canvas 미사용, 제목 직접 그리기 방식)
 saveImageBtn.addEventListener('click', async () => {
     saveImageBtn.disabled = true;
     saveImageBtn.textContent = '캡처 중...';
@@ -208,19 +218,24 @@ searchPlayerInput.addEventListener('input', () => {
     filterPlayerCards();
 });
 
+// ✅ [수정] 닫기 버튼 로직에 useScoreModal 추가
 closeBtns.forEach(btn => {
     if (btn.closest('#passwordModal')) return;
     btn.addEventListener('click', () => {
         scoreModal.style.display = 'none';
         historyModal.style.display = 'none';
+        useScoreModal.style.display = 'none'; // 새 모달 닫기
     });
 });
 
+// ✅ [수정] 모달 바깥 클릭 로직에 useScoreModal 추가
 window.addEventListener('click', (event) => {
     if (event.target == scoreModal) scoreModal.style.display = 'none';
     if (event.target == historyModal) historyModal.style.display = 'none';
+    if (event.target == useScoreModal) useScoreModal.style.display = 'none'; // 새 모달 닫기
 });
 
+// '상점 입력' 폼 제출
 scoreForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const date = document.getElementById('scoreDate').value;
@@ -236,7 +251,7 @@ scoreForm.addEventListener('submit', async (e) => {
     
     const points = calculatePoints(participants, rank);
     if (points > 0) {
-        await addPlayer(nickname);
+        await addPlayer(nickname); // 플레이어가 없으면 자동 추가
         await addScore(nickname, date, gameType, participants, rank, points);
         alert(`${nickname}님에게 ${points}점이 적립되었습니다.`);
     } else {
@@ -248,6 +263,41 @@ scoreForm.addEventListener('submit', async (e) => {
     scoreModal.style.display = 'none';
     await loadData();
 });
+
+// ✅ [수정] '승점 사용' 폼 제출 이벤트 리스너
+useScoreForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const date = document.getElementById('usageDate').value;
+    const gameType = document.getElementById('usageGameType').value.trim(); // 대회명
+    const nickname = document.getElementById('usagePlayerNickname').value.trim();
+    const pointsUsed = parseInt(document.getElementById('pointsUsed').value);
+
+    if (!nickname) {
+        alert("닉네임을 입력해주세요.");
+        return;
+    }
+    
+    if (!gameType) {
+        alert("대회명(사용 내역)을 입력해주세요.");
+        return;
+    }
+
+    if (pointsUsed > 0) {
+        const points = -pointsUsed; // 점수를 음수로 변환
+        
+        // '승점 사용' 내역도 'addScore' 함수를 통해 'scores' 컬렉션에 저장
+        // (participants=0, rank="사용"으로 구분)
+        await addScore(nickname, date, gameType, 0, "사용", points); 
+        alert(`${nickname}님이 ${pointsUsed}점을 사용했습니다. (총 점수 차감)`);
+        
+        useScoreForm.reset();
+        useScoreModal.style.display = 'none';
+        await loadData(); // 데이터 새로고침
+    } else {
+        alert("사용할 점수를 1점 이상 입력해주세요.");
+    }
+});
+
 
 // --- 데이터 처리 및 렌더링 함수 ---
 
@@ -274,6 +324,8 @@ async function addPlayer(nickname) {
     }
 }
 
+// 이 함수는 'scores' 컬렉션에 문서를 추가하는 역할
+// points가 양수(+)면 적립, 음수(-)면 차감(사용)으로 기록됨
 async function addScore(nickname, date, gameType, participants, rank, points) {
     const timestamp = new Date().getTime();
     const customId = `${date}-${nickname}-${rank}-${timestamp}`;
@@ -301,6 +353,8 @@ async function loadPlayersForDatalist() {
     });
 }
 
+// 이 함수는 'scores' 컬렉션의 모든 'points' 필드를 합산
+// (음수 점수(승점 사용)가 있으면 자동으로 차감됨)
 async function getCurrentPlayerScores() {
     const scoresSnapshot = await getDocs(collection(db, "scores"));
     const playersSnapshot = await getDocs(collection(db, "players"));
@@ -404,8 +458,9 @@ function renderRankingChart(topPlayers) {
     });
 }
 
+// ✅ [수정] 획득 내역 함수가 '승점 사용' 내역도 보여주도록 수정
 async function showHistory(nickname) {
-    historyNickname.textContent = `${nickname}님의 획득 내역`;
+    historyNickname.textContent = `${nickname}님의 획득/사용 내역`;
     historyList.innerHTML = '<li>로딩 중...</li>';
     historyModal.style.display = 'block';
     const q = query(
@@ -416,13 +471,22 @@ async function showHistory(nickname) {
     const snapshot = await getDocs(q);
     historyList.innerHTML = '';
     if (snapshot.empty) {
-        historyList.innerHTML = '<li>획득 내역이 없습니다.</li>';
+        historyList.innerHTML = '<li>내역이 없습니다.</li>';
         return;
     }
     snapshot.forEach(doc => {
         const data = doc.data();
         const li = document.createElement('li');
-        li.textContent = `[${data.date}] ${data.gameType} (${data.participants}명 중 ${data.rank}등) - ${data.points}점 획득`;
+        
+        if (data.points > 0) {
+            // 기존 획득 내역
+            li.textContent = `[${data.date}] ${data.gameType} (${data.participants}명 중 ${data.rank}등) - ${data.points}점 획득`;
+            li.style.color = 'blue'; // 획득은 파란색
+        } else {
+            // '승점 사용' 내역 (points가 음수)
+            li.textContent = `[${data.date}] ${data.gameType} - ${Math.abs(data.points)}점 사용`;
+            li.style.color = 'red'; // 사용은 빨간색
+        }
         historyList.appendChild(li);
     });
 }
