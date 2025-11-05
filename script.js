@@ -24,7 +24,8 @@ const db = getFirestore(app);
 // DOM 요소 가져오기
 const addPlayerBtn = document.getElementById('addPlayerBtn');
 const addScoreBtn = document.getElementById('addScoreBtn');
-const searchPlayerInput = document.getElementById('searchPlayerInput'); // 검색창
+const saveImageBtn = document.getElementById('saveImageBtn'); // ✅ 이미지 저장 버튼
+const searchPlayerInput = document.getElementById('searchPlayerInput'); 
 const scoreModal = document.getElementById('scoreModal');
 const historyModal = document.getElementById('historyModal');
 const passwordModal = document.getElementById('passwordModal');
@@ -32,7 +33,7 @@ const closeBtns = document.querySelectorAll('.close-btn');
 const scoreForm = document.getElementById('scoreForm');
 const participantsSelect = document.getElementById('participants');
 const playerDatalist = document.getElementById('player-list');
-const playerDatalistSearch = document.getElementById('player-list-search'); // 검색용 데이터리스트
+const playerDatalistSearch = document.getElementById('player-list-search'); 
 const playerCardsContainer = document.getElementById('player-cards-container');
 const historyList = document.getElementById('historyList');
 const historyNickname = document.getElementById('historyNickname');
@@ -125,6 +126,82 @@ addScoreBtn.addEventListener('click', async () => {
     if (!isAuthorized) return;
     scoreModal.style.display = 'block';
 });
+
+// ==========================================================
+// ✅ [수정] 이미지 저장 (html2canvas 미사용, 제목 직접 그리기 방식)
+// ==========================================================
+saveImageBtn.addEventListener('click', async () => {
+    saveImageBtn.disabled = true;
+    saveImageBtn.textContent = '캡처 중...';
+
+    // 1. Chart.js 내장 기능으로 '차트'만 캡처 (흰색 배경 포함)
+    const ctx = rankingChart.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = '#FFFFFF'; // 흰색
+    ctx.fillRect(0, 0, rankingChart.width, rankingChart.height);
+    const chartImageDataUrl = rankingChart.toBase64Image('image/png');
+    ctx.restore();
+
+    // 2. 캡처한 차트 데이터를 임시 이미지로 로드 (크기 확인용)
+    const chartImage = new Image();
+    chartImage.onload = () => {
+        // 3. 이미지가 로드되면, '제목 + 차트'를 그릴 새 캔버스 생성
+        const finalCanvas = document.createElement('canvas');
+        const titleText = '🏆 TOP RANKING 🏆';
+        const titleFontSize = 24; // H2 태그의 일반적인 크기
+        const titleFontFamily = "'Noto Sans KR', sans-serif";
+        const titleColor = '#333333';
+        const titlePadding = 30; // 제목 상하 여백
+
+        // 4. 새 캔버스 크기 설정
+        finalCanvas.width = chartImage.width;
+        finalCanvas.height = chartImage.height + titleFontSize + titlePadding;
+        
+        const fCtx = finalCanvas.getContext('2d');
+
+        // 5. 새 캔버스 배경을 흰색으로 채우기
+        fCtx.fillStyle = '#FFFFFF';
+        fCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+        // 6. 새 캔버스에 '제목' 그리기
+        fCtx.fillStyle = titleColor;
+        fCtx.font = `bold ${titleFontSize}px ${titleFontFamily}`;
+        fCtx.textAlign = 'center';
+        fCtx.textBaseline = 'middle';
+        fCtx.fillText(titleText, finalCanvas.width / 2, (titleFontSize / 2) + (titlePadding / 2));
+
+        // 7. 새 캔버스에 '차트 이미지' 그리기
+        fCtx.drawImage(chartImage, 0, titleFontSize + titlePadding);
+
+        // 8. 완성된 캔버스를 이미지로 다운로드
+        const image = finalCanvas.toDataURL("image/png");
+        const link = document.createElement('a');
+        
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const filename = `홀덤랭킹_그래프_${year}${month}${day}_${hours}${minutes}${seconds}.png`;
+
+        link.download = filename;
+        link.href = image;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // 9. 완료 후 버튼 복구
+        saveImageBtn.disabled = false;
+        saveImageBtn.textContent = '📸 이미지 저장 📸';
+    };
+    
+    // 10. 이미지 로드 시작
+    chartImage.src = chartImageDataUrl;
+});
+
 
 // 검색창 입력 이벤트 리스너
 searchPlayerInput.addEventListener('input', () => {
@@ -224,52 +301,33 @@ async function loadPlayersForDatalist() {
     });
 }
 
-// ==========================================================
-// ✅ [확인] 여기가 사용자가 문의한 '점수 합산' 로직입니다.
-// ==========================================================
 async function getCurrentPlayerScores() {
-    // 1. 'scores' 컬렉션의 모든 문서를 가져옵니다.
     const scoresSnapshot = await getDocs(collection(db, "scores"));
-    // 2. 'players' 컬렉션의 모든 문서를 가져옵니다.
     const playersSnapshot = await getDocs(collection(db, "players"));
 
-    // 3. 모든 플레이어의 점수를 0점으로 초기화하는 객체를 만듭니다.
     const playerScores = {};
     playersSnapshot.forEach(doc => {
         playerScores[doc.data().nickname] = 0;
     });
 
-    // 4. 'scores' 컬렉션의 각 문서를 순회합니다.
     scoresSnapshot.forEach(doc => {
         const data = doc.data();
-        // 5. 점수 기록의 닉네임이 플레이어 목록에 존재하면
         if(playerScores.hasOwnProperty(data.nickname)) {
-            // 6. 해당 플레이어의 점수에 누적 합산합니다.
             playerScores[data.nickname] += data.points;
         }
     });
-    
-    // 7. 합산 완료된 객체를 반환합니다.
     return playerScores;
 }
 
-// ==========================================================
-// ✅ [확인] 이 함수가 합산된 점수를 받아 카드와 그래프로 전달합니다.
-// ==========================================================
 async function loadData() {
-    // 1. 위 함수에서 합산된 점수 객체를 가져옵니다.
     const playerScores = await getCurrentPlayerScores();
     
-    // 2. 점수를 기준으로 내림차순 정렬합니다.
     const sortedByScore = Object.entries(playerScores).sort((a, b) => b[1] - a[1]);
 
-    // 3. 정렬된 데이터를 카드 렌더링 함수로 전달합니다.
     renderPlayerCards(sortedByScore);
     
-    // 4. 1점 이상인(0점 초과) 모든 플레이어를 필터링합니다.
     const playersForChart = sortedByScore.filter(player => player[1] > 0);
     
-    // 5. 필터링된 데이터를 그래프 렌더링 함수로 전달합니다.
     renderRankingChart(playersForChart);
 }
 
@@ -314,7 +372,6 @@ function renderRankingChart(topPlayers) {
     if (rankingChart) {
         rankingChart.destroy();
     }
-    // 원래의 반투명(rgba) 색상
     const pastelColors = [
         'rgba(255, 182, 193, 0.7)', 'rgba(255, 228, 181, 0.7)', 'rgba(173, 216, 230, 0.7)',
         'rgba(144, 238, 144, 0.7)', 'rgba(221, 160, 221, 0.7)', 'rgba(240, 230, 140, 0.7)',
@@ -337,7 +394,6 @@ function renderRankingChart(topPlayers) {
             }]
         },
         options: {
-            // 애니메이션 활성화 (기본값)
             responsive: true,
             plugins: { legend: { display: false } },
             scales: {
